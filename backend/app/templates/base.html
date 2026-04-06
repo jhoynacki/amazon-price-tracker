@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Amazon Price Tracker{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <style>
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .alert { padding: .75rem 1rem; border-radius: .375rem; margin: .5rem 0; }
+    .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .alert-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full">
+  <!-- Nav -->
+  <nav class="bg-[#232f3e] text-white shadow">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+      <a href="{{ prefix }}/" class="flex items-center gap-2 font-bold text-lg">
+        <svg class="w-6 h-6 text-[#FF9900]" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/>
+        </svg>
+        <span>Price Tracker</span>
+      </a>
+      {% if request.session.get('user_id') %}
+      <div class="flex items-center gap-4 text-sm">
+        <a href="{{ prefix }}/dashboard" class="hover:text-[#FF9900] transition-colors">Dashboard</a>
+        <a href="{{ prefix }}/auth/logout" class="hover:text-[#FF9900] transition-colors">Logout</a>
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+
+  <!-- Flash message area (HTMX target) -->
+  <div id="flash" class="max-w-7xl mx-auto px-4 mt-2"></div>
+
+  <!-- Main content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center text-xs text-gray-400 py-6">
+    Amazon Price Tracker &bull; <a href="https://jack-hoy.com" class="hover:underline">jack-hoy.com</a>
+  </footer>
+
+  <script>
+    // Auto-dismiss flash messages after 5s
+    document.addEventListener("htmx:afterSettle", function() {
+      setTimeout(() => {
+        const flash = document.getElementById("flash");
+        if (flash) flash.innerHTML = "";
+      }, 5000);
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

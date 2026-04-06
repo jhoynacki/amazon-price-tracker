@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Preview Server",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["preview_server.py"],
+      "port": 8000
+    },
+    {
+      "name": "FastAPI Backend",
+      "runtimeExecutable": "uvicorn",
+      "runtimeArgs": ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "port": 8000
+    },
+    {
+      "name": "Celery Worker",
+      "runtimeExecutable": "celery",
+      "runtimeArgs": ["-A", "app.tasks.celery_app", "worker", "--loglevel=info", "--concurrency=2"],
+      "port": 5555
+    },
+    {
+      "name": "Celery Beat Scheduler",
+      "runtimeExecutable": "celery",
+      "runtimeArgs": ["-A", "app.tasks.celery_app", "beat", "--loglevel=info"],
+      "port": 5556
+    },
+    {
+      "name": "Flower (Task Monitor)",
+      "runtimeExecutable": "celery",
+      "runtimeArgs": ["-A", "app.tasks.celery_app", "flower", "--port=5555"],
+      "port": 5555
+    }
+  ]
+}

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Amazon Price Tracker{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">My Tracked Products</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        Welcome back, {{ user.name or "there" }} &bull; {{ user_products|length }} product(s) tracked
+      </p>
+    </div>
+    <button onclick="document.getElementById('add-modal').classList.remove('hidden')"
+            class="bg-[#FF9900] hover:bg-[#e68a00] text-white font-semibold px-4 py-2 rounded-lg
+                   flex items-center gap-2 text-sm shadow transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add Product
+    </button>
+  </div>
+
+  <!-- Flash target -->
+  <div id="import-result"></div>
+
+  <!-- Import CSV card -->
+  <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+    <div class="flex-1">
+      <h2 class="font-semibold text-gray-700">Import Order History</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        Upload your Amazon order history CSV or ZIP from
+        <em>Account &rarr; Download Your Data</em>
+        to auto-add all previously purchased items.
+      </p>
+    </div>
+    <form hx-post="{{ prefix }}/products/import"
+          hx-target="#import-result"
+          hx-swap="innerHTML"
+          hx-encoding="multipart/form-data"
+          class="flex items-center gap-2">
+      <input type="file" name="file" accept=".csv,.zip"
+             class="text-sm text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded
+                    file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700
+                    hover:file:bg-gray-200 cursor-pointer" required>
+      <button type="submit"
+              class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium
+                     px-4 py-1.5 rounded transition-colors whitespace-nowrap">
+        <span class="htmx-indicator">Importing…</span>
+        <span>Import</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- Products table -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    {% if user_products %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600 w-12"></th>
+            <th class="text-left px-4 py-3 font-semibold text-gray-600">Product</th>
+            <th class="text-right px-4 py-3 font-semibold text-gray-600">Current</th>
+            <th class="text-right px-4 py-3 font-semibold text-gray-600">List</th>
+            <th class="text-right px-4 py-3 font-semibold text-gray-600">Discount</th>
+            <th class="text-right px-4 py-3 font-semibold text-gray-600">Target</th>
+            <th class="text-center px-4 py-3 font-semibold text-gray-600">Alerts</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody id="product-list" class="divide-y divide-gray-100">
+          {% for up in user_products %}
+          {% include "partials/product_row.html" %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M20 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zm-9-4h2m-1 0v4"/>
+      </svg>
+      <p class="font-medium">No products tracked yet</p>
+      <p class="text-sm mt-1">Add a product by URL or ASIN, or import your order history.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Alert settings -->
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <h2 class="font-semibold text-gray-700 mb-4">Alert Settings</h2>
+    <form hx-post="{{ prefix }}/settings"
+          hx-target="#settings-result"
+          hx-swap="innerHTML"
+          class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Alert Email</label>
+        <input type="email" name="alert_email" value="{{ email }}"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">SMS (E.164 format, e.g. +15551234567)</label>
+        <input type="tel" name="alert_sms" value="{{ user.alert_sms or '' }}"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Telegram Chat ID</label>
+        <input type="text" name="alert_telegram_chat_id"
+               value="{{ user.alert_telegram_chat_id or '' }}"
+               placeholder="Get from @userinfobot"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Pushover User Key</label>
+        <input type="text" name="alert_pushover_user_key"
+               value="{{ user.alert_pushover_user_key or '' }}"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+      </div>
+      <div class="sm:col-span-2 flex items-center gap-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="alerts_enabled"
+                 {% if user.alerts_enabled %}checked{% endif %}
+                 class="w-4 h-4 accent-[#FF9900]">
+          <span class="text-sm text-gray-700">Enable all alerts</span>
+        </label>
+        <button type="submit"
+                class="ml-auto bg-[#FF9900] hover:bg-[#e68a00] text-white font-semibold
+                       px-5 py-2 rounded-lg text-sm transition-colors">
+          Save Settings
+        </button>
+      </div>
+    </form>
+    <div id="settings-result" class="mt-2"></div>
+  </div>
+
+</div>
+
+<!-- Add Product Modal -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-bold text-lg text-gray-800">Add Product</h2>
+      <button onclick="document.getElementById('add-modal').classList.add('hidden')"
+              class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    </div>
+    <form hx-post="{{ prefix }}/products/add"
+          hx-target="#product-list"
+          hx-swap="beforeend"
+          hx-on::after-request="document.getElementById('add-modal').classList.add('hidden')"
+          class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Amazon URL or ASIN *</label>
+        <input type="text" name="asin_or_url" required
+               placeholder="https://www.amazon.com/dp/B08N5... or B08N5KWB9H"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Target Price ($)</label>
+          <input type="number" name="target_price" step="0.01" min="0"
+                 placeholder="19.99"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Min Discount (%)</label>
+          <input type="number" name="target_discount_pct" step="1" min="0" max="100"
+                 placeholder="20"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-[#FF9900]">
+        </div>
+      </div>
+      <div class="flex gap-4 text-sm text-gray-700">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="notify_email" checked class="accent-[#FF9900]">
+          Email
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="notify_sms" class="accent-[#FF9900]">
+          SMS
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="notify_telegram" class="accent-[#FF9900]">
+          Telegram
+        </label>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button"
+                onclick="document.getElementById('add-modal').classList.add('hidden')"
+                class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg
+                       text-sm hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button type="submit"
+                class="flex-1 bg-[#FF9900] hover:bg-[#e68a00] text-white font-semibold py-2
+                       rounded-lg text-sm transition-colors">
+          <span class="htmx-indicator">Adding…</span>
+          <span>Track Product</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Price history chart modal
+function showChart(asin, title) {
+  const modal = document.getElementById('chart-modal');
+  const titleEl = document.getElementById('chart-title');
+  titleEl.textContent = title;
+  modal.classList.remove('hidden');
+
+  fetch(`{{ prefix }}/products/${asin}/history`)
+    .then(r => r.json())
+    .then(data => {
+      const opts = {
+        chart: { type: 'area', height: 300, toolbar: { show: false },
+                 fontFamily: 'inherit', background: 'transparent' },
+        series: [{ name: 'Price', data: data.data }],
+        xaxis: { type: 'datetime', labels: { style: { colors: '#6b7280' } } },
+        yaxis: { labels: { formatter: v => v ? `$${v.toFixed(2)}` : '',
+                           style: { colors: '#6b7280' } } },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0 } },
+        stroke: { curve: 'smooth', width: 2 },
+        colors: ['#FF9900'],
+        tooltip: { x: { format: 'MMM dd, yyyy HH:mm' },
+                   y: { formatter: v => v ? `$${v.toFixed(2)}` : 'N/A' } },
+        grid: { borderColor: '#e5e7eb' },
+        dataLabels: { enabled: false },
+      };
+      document.getElementById('price-chart').innerHTML = '';
+      new ApexCharts(document.getElementById('price-chart'), opts).render();
+    });
+}
+
+function closeChart() {
+  document.getElementById('chart-modal').classList.add('hidden');
+}
+</script>
+
+<!-- Chart Modal -->
+<div id="chart-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="chart-title" class="font-bold text-lg text-gray-800"></h2>
+      <button onclick="closeChart()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    </div>
+    <div id="price-chart"></div>
+  </div>
+</div>
+{% endblock %}

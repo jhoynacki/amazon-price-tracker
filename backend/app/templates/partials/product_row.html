@@ -1,0 +1,126 @@
+<tr id="row-{{ up.id }}" class="hover:bg-gray-50 transition-colors group">
+  <!-- Thumbnail -->
+  <td class="px-4 py-3">
+    {% if up.product and up.product.image_url %}
+    <img src="{{ up.product.image_url }}" alt=""
+         class="w-10 h-10 object-contain rounded border border-gray-100">
+    {% else %}
+    <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
+      N/A
+    </div>
+    {% endif %}
+  </td>
+
+  <!-- Title + ASIN -->
+  <td class="px-4 py-3 max-w-xs">
+    {% if up.product and up.product.product_url %}
+    <a href="{{ up.product.product_url }}" target="_blank" rel="noopener noreferrer"
+       class="font-medium text-gray-800 hover:text-[#FF9900] line-clamp-2 leading-snug">
+      {{ up.product.title if up.product else up.asin }}
+    </a>
+    {% else %}
+    <span class="font-medium text-gray-800 line-clamp-2">{{ up.product.title if up.product else up.asin }}</span>
+    {% endif %}
+    <div class="text-xs text-gray-400 mt-0.5 font-mono">{{ up.asin }}</div>
+    {% if up.product and up.product.deal_badge %}
+    <span class="inline-block mt-1 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+      {{ up.product.deal_badge }}
+    </span>
+    {% endif %}
+  </td>
+
+  <!-- Current price -->
+  <td class="px-4 py-3 text-right font-semibold">
+    {% if up.product and up.product.current_price %}
+    <span class="text-gray-900">${{ "%.2f"|format(up.product.current_price) }}</span>
+    {% else %}
+    <span class="text-gray-400">—</span>
+    {% endif %}
+  </td>
+
+  <!-- List price -->
+  <td class="px-4 py-3 text-right text-gray-400">
+    {% if up.product and up.product.list_price %}
+    <s>${{ "%.2f"|format(up.product.list_price) }}</s>
+    {% else %}—{% endif %}
+  </td>
+
+  <!-- Discount -->
+  <td class="px-4 py-3 text-right">
+    {% if up.product and up.product.current_price and up.product.list_price and up.product.list_price > 0 %}
+    {% set disc = ((up.product.list_price - up.product.current_price) / up.product.list_price * 100)|round(0) %}
+    {% if disc > 0 %}
+    <span class="text-green-600 font-semibold">{{ disc|int }}% off</span>
+    {% else %}—{% endif %}
+    {% else %}—{% endif %}
+  </td>
+
+  <!-- Target price / discount -->
+  <td class="px-4 py-3 text-right text-sm text-gray-500">
+    {% if up.target_price %}
+    <span title="Target price">${{ "%.2f"|format(up.target_price) }}</span>
+    {% endif %}
+    {% if up.target_price and up.target_discount_pct %}<br>{% endif %}
+    {% if up.target_discount_pct %}
+    <span title="Min discount">≥{{ up.target_discount_pct|int }}%</span>
+    {% endif %}
+    {% if not up.target_price and not up.target_discount_pct %}
+    <span class="text-gray-300">none</span>
+    {% endif %}
+  </td>
+
+  <!-- Alert channels -->
+  <td class="px-4 py-3 text-center text-xs text-gray-400 space-x-1">
+    {% if up.notify_email %}<span title="Email" class="text-blue-500">✉</span>{% endif %}
+    {% if up.notify_sms %}<span title="SMS" class="text-green-500">📱</span>{% endif %}
+    {% if up.notify_telegram %}<span title="Telegram" class="text-sky-500">✈</span>{% endif %}
+  </td>
+
+  <!-- Actions -->
+  <td class="px-4 py-3 text-right">
+    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <!-- Price history chart -->
+      <button onclick="showChart('{{ up.asin }}', '{{ (up.product.title if up.product else up.asin)|replace("'", "\\'") }}')"
+              title="Price history"
+              class="p-1.5 text-gray-400 hover:text-[#FF9900] rounded transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </button>
+      <!-- Refresh -->
+      <button hx-post="{{ prefix }}/products/{{ up.asin }}/refresh"
+              hx-target="#row-{{ up.id }}"
+              hx-swap="none"
+              hx-indicator="#row-{{ up.id }}"
+              title="Refresh price now"
+              class="p-1.5 text-gray-400 hover:text-blue-500 rounded transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </button>
+      <!-- Edit -->
+      <button onclick="openEdit({{ up.id }}, '{{ up.target_price or '' }}', '{{ up.target_discount_pct or '' }}', {{ 'true' if up.notify_email else 'false' }}, {{ 'true' if up.notify_sms else 'false' }}, {{ 'true' if up.notify_telegram else 'false' }})"
+              title="Edit"
+              class="p-1.5 text-gray-400 hover:text-indigo-500 rounded transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </button>
+      <!-- Delete -->
+      <button hx-delete="{{ prefix }}/products/{{ up.id }}"
+              hx-target="#row-{{ up.id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Remove this product from tracking?"
+              title="Delete"
+              class="p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>
+    </div>
+  </td>
+</tr>
