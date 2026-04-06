@@ -9,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse as StarletteRedirect
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import get_settings
 from .database import Base, engine
@@ -30,24 +31,33 @@ templates = Jinja2Templates(directory="app/templates")
 PIN_EXEMPT = {"/health", f"{settings.APP_PATH_PREFIX}/_pin"}
 
 
-class PinGateMiddleware(BaseHTTPMiddleware):
-    """Block all routes unless the session has a valid PIN or PIN is not set."""
+class PinGateMiddleware:
+    """Pure ASGI middleware — reads scope['session'] directly after SessionMiddleware populates it."""
 
-    async def dispatch(self, request: Request, call_next):
-        if not settings.ACCESS_PIN:
-            return await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-        path = request.url.path
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not settings.ACCESS_PIN:
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
         if path in PIN_EXEMPT or path.startswith(f"{settings.APP_PATH_PREFIX}/static"):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        if not request.session.get("pin_ok"):
-            next_url = str(request.url)
-            return RedirectResponse(
-                url=f"{settings.APP_PATH_PREFIX}/_pin?next={next_url}"
+        # scope["session"] is populated by SessionMiddleware (which wraps us)
+        session = scope.get("session", {})
+        if not session.get("pin_ok"):
+            request = Request(scope, receive)
+            redirect = StarletteRedirect(
+                url=f"{settings.APP_PATH_PREFIX}/_pin?next={str(request.url)}"
             )
+            await redirect(scope, receive, send)
+            return
 
-        return await call_next(request)
+        await self.app(scope, receive, send)
 
 
 app = FastAPI(
