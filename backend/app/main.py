@@ -25,42 +25,6 @@ settings = get_settings()
 # Auto-create tables on startup (use Alembic for production migrations)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="Amazon Price Tracker",
-    docs_url=f"{settings.APP_PATH_PREFIX}/docs",
-    openapi_url=f"{settings.APP_PATH_PREFIX}/openapi.json",
-    root_path=settings.APP_PATH_PREFIX,
-)
-
-# Middleware
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.SECRET_KEY,
-    session_cookie="amztracker_session",
-    same_site="lax",
-    https_only=settings.ENVIRONMENT == "production",
-    max_age=7 * 24 * 3600,  # 7 days
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.APP_BASE_URL],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Static files
-app.mount(
-    f"{settings.APP_PATH_PREFIX}/static",
-    StaticFiles(directory="app/static"),
-    name="static",
-)
-
-# Routers (all prefixed under /amazon)
-app.include_router(auth.router, prefix=settings.APP_PATH_PREFIX)
-app.include_router(dashboard.router, prefix=settings.APP_PATH_PREFIX)
-app.include_router(products.router, prefix=f"{settings.APP_PATH_PREFIX}/products")
-
 templates = Jinja2Templates(directory="app/templates")
 
 PIN_EXEMPT = {"/health", f"{settings.APP_PATH_PREFIX}/_pin"}
@@ -74,7 +38,6 @@ class PinGateMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         path = request.url.path
-        # Always allow health check and the PIN submission route
         if path in PIN_EXEMPT or path.startswith(f"{settings.APP_PATH_PREFIX}/static"):
             return await call_next(request)
 
@@ -87,7 +50,44 @@ class PinGateMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+app = FastAPI(
+    title="Amazon Price Tracker",
+    docs_url=f"{settings.APP_PATH_PREFIX}/docs",
+    openapi_url=f"{settings.APP_PATH_PREFIX}/openapi.json",
+    root_path=settings.APP_PATH_PREFIX,
+)
+
+# Middleware — Starlette applies in LIFO order (last added = outermost = runs first).
+# Desired execution order: SessionMiddleware → CORSMiddleware → PinGateMiddleware → routes
+# So we add them in reverse: PinGate first, Session last.
 app.add_middleware(PinGateMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.APP_BASE_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="amztracker_session",
+    same_site="lax",
+    https_only=settings.ENVIRONMENT == "production",
+    max_age=7 * 24 * 3600,  # 7 days
+)
+
+# Static files
+app.mount(
+    f"{settings.APP_PATH_PREFIX}/static",
+    StaticFiles(directory="app/static"),
+    name="static",
+)
+
+# Routers (all prefixed under /amazon)
+app.include_router(auth.router, prefix=settings.APP_PATH_PREFIX)
+app.include_router(dashboard.router, prefix=settings.APP_PATH_PREFIX)
+app.include_router(products.router, prefix=f"{settings.APP_PATH_PREFIX}/products")
 
 
 @app.exception_handler(401)
