@@ -64,7 +64,8 @@ app = FastAPI(
     title="Amazon Price Tracker",
     docs_url=f"{settings.APP_PATH_PREFIX}/docs",
     openapi_url=f"{settings.APP_PATH_PREFIX}/openapi.json",
-    root_path=settings.APP_PATH_PREFIX,
+    # Do NOT set root_path — Starlette 0.41+ would strip that prefix from scope["path"]
+    # before routing, but all our routes are explicitly prefixed with APP_PATH_PREFIX.
 )
 
 # Middleware — Starlette applies in LIFO order (last added = outermost = runs first).
