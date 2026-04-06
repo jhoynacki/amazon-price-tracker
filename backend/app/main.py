@@ -4,11 +4,12 @@ Served at jack-hoy.com/amazon via Nginx reverse proxy.
 """
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
@@ -62,6 +63,32 @@ app.include_router(products.router, prefix=f"{settings.APP_PATH_PREFIX}/products
 
 templates = Jinja2Templates(directory="app/templates")
 
+PIN_EXEMPT = {"/health", f"{settings.APP_PATH_PREFIX}/_pin"}
+
+
+class PinGateMiddleware(BaseHTTPMiddleware):
+    """Block all routes unless the session has a valid PIN or PIN is not set."""
+
+    async def dispatch(self, request: Request, call_next):
+        if not settings.ACCESS_PIN:
+            return await call_next(request)
+
+        path = request.url.path
+        # Always allow health check and the PIN submission route
+        if path in PIN_EXEMPT or path.startswith(f"{settings.APP_PATH_PREFIX}/static"):
+            return await call_next(request)
+
+        if not request.session.get("pin_ok"):
+            next_url = str(request.url)
+            return RedirectResponse(
+                url=f"{settings.APP_PATH_PREFIX}/_pin?next={next_url}"
+            )
+
+        return await call_next(request)
+
+
+app.add_middleware(PinGateMiddleware)
+
 
 @app.exception_handler(401)
 async def unauthorized_handler(request: Request, exc):
@@ -80,3 +107,31 @@ async def health():
 @app.get("/")
 async def root():
     return RedirectResponse(url=f"{settings.APP_PATH_PREFIX}/")
+
+
+@app.get(f"{settings.APP_PATH_PREFIX}/_pin", response_class=HTMLResponse)
+async def pin_page(request: Request, next: str = ""):
+    return templates.TemplateResponse(
+        "pin.html",
+        {"request": request, "prefix": settings.APP_PATH_PREFIX,
+         "next": next or f"{settings.APP_PATH_PREFIX}/", "error": False},
+    )
+
+
+@app.post(f"{settings.APP_PATH_PREFIX}/_pin", response_class=HTMLResponse)
+async def pin_submit(
+    request: Request,
+    pin: str = Form(...),
+    next: str = Form(default=""),
+):
+    if pin == settings.ACCESS_PIN:
+        request.session["pin_ok"] = True
+        return RedirectResponse(
+            url=next or f"{settings.APP_PATH_PREFIX}/", status_code=303
+        )
+    return templates.TemplateResponse(
+        "pin.html",
+        {"request": request, "prefix": settings.APP_PATH_PREFIX,
+         "next": next, "error": True},
+        status_code=401,
+    )

@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # Scraper Proxy (optional — comma-separated list)
     PROXY_LIST: str = ""
 
+    # PIN gate (leave empty to disable)
+    ACCESS_PIN: str = ""
+
     # Price check interval in hours
     PRICE_CHECK_INTERVAL_HOURS: int = 6
 

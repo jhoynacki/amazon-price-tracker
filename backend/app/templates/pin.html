@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Required</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full flex items-center justify-center">
+  <div class="bg-gray-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm text-center">
+    <div class="w-14 h-14 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-5">
+      <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
+    </div>
+    <h1 class="text-white font-bold text-xl mb-1">Private Access</h1>
+    <p class="text-gray-400 text-sm mb-6">Enter your PIN to continue</p>
+
+    {% if error %}
+    <p class="text-red-400 text-sm mb-4">Incorrect PIN. Try again.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ prefix }}/_pin">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="flex justify-center gap-3 mb-6" id="pin-display">
+        <div class="w-3 h-3 rounded-full bg-gray-600" id="dot-0"></div>
+        <div class="w-3 h-3 rounded-full bg-gray-600" id="dot-1"></div>
+        <div class="w-3 h-3 rounded-full bg-gray-600" id="dot-2"></div>
+        <div class="w-3 h-3 rounded-full bg-gray-600" id="dot-3"></div>
+      </div>
+      <input type="password" name="pin" id="pin-input" maxlength="8"
+             autocomplete="off" inputmode="numeric"
+             class="sr-only" autofocus>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        {% for n in [1,2,3,4,5,6,7,8,9,'','0','⌫'] %}
+        <button type="button" onclick="pressKey('{{ n }}')"
+                class="{% if n == '' %}invisible{% endif %}
+                       h-14 rounded-xl text-white text-xl font-medium
+                       bg-gray-700 hover:bg-gray-600 active:bg-gray-500
+                       transition-colors select-none">
+          {{ n }}
+        </button>
+        {% endfor %}
+      </div>
+      <button type="submit" id="submit-btn"
+              class="w-full bg-[#FF9900] hover:bg-[#e68a00] text-white font-semibold
+                     py-3 rounded-xl transition-colors disabled:opacity-40"
+              disabled>
+        Unlock
+      </button>
+    </form>
+  </div>
+
+  <script>
+    const input = document.getElementById('pin-input');
+    const dots = [0,1,2,3].map(i => document.getElementById('dot-'+i));
+    const btn = document.getElementById('submit-btn');
+
+    function updateDots() {
+      const v = input.value;
+      dots.forEach((d, i) => {
+        d.className = 'w-3 h-3 rounded-full ' + (i < v.length ? 'bg-[#FF9900]' : 'bg-gray-600');
+      });
+      btn.disabled = v.length === 0;
+    }
+
+    function pressKey(k) {
+      if (k === '⌫') {
+        input.value = input.value.slice(0, -1);
+      } else if (k !== '' && input.value.length < 8) {
+        input.value += k;
+      }
+      updateDots();
+    }
+
+    input.addEventListener('input', updateDots);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && input.value.length > 0) {
+        document.querySelector('form').submit();
+      }
+    });
+  </script>
+</body>
+</html>
