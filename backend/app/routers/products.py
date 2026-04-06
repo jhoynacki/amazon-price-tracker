@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..database import get_db
-from ..models import Product, UserProduct, PriceHistory
+from ..models import Product, UserProduct, PriceHistory, BlockedAsin
 from ..routers.auth import get_current_user
 from ..services.order_parser import parse_order_upload
 from ..services.price_tracker import fetch_price
@@ -219,9 +219,20 @@ async def import_orders(
     if not items:
         return HTMLResponse('<div class="alert alert-error">No valid ASINs found in file.</div>')
 
+    # Load blocked ASINs for this user so we never re-add them
+    blocked = {
+        b.asin for b in db.query(BlockedAsin).filter(BlockedAsin.user_id == user.id).all()
+    }
+
     added = 0
+    skipped_blocked = 0
     for item in items:
         asin = item["asin"]
+
+        if asin in blocked:
+            skipped_blocked += 1
+            continue
+
         title = item.get("title", f"ASIN {asin}")
 
         # Ensure Product row exists
@@ -259,9 +270,10 @@ async def import_orders(
     for item in items:
         check_single_product.delay(item["asin"])
 
+    blocked_note = f" ({skipped_blocked} permanently hidden items skipped)" if skipped_blocked else ""
     return HTMLResponse(
         f'<div class="alert alert-success">'
-        f'Imported {added} new products from {len(items)} order items. '
+        f'Imported {added} new products from {len(items)} order items{blocked_note}. '
         f'Prices will update shortly.</div>'
         f'<script>setTimeout(()=>window.location.reload(),3000)</script>'
     )
@@ -309,3 +321,62 @@ async def refresh_product(
     """Queue an immediate price check."""
     check_single_product.delay(asin)
     return HTMLResponse('<span class="text-green-500">Refresh queued!</span>')
+
+
+@router.post("/{up_id}/block", response_class=HTMLResponse)
+async def block_product(
+    up_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Permanently hide a product — removes it and blocks re-import."""
+    up = (
+        db.query(UserProduct)
+        .filter(UserProduct.id == up_id, UserProduct.user_id == user.id)
+        .first()
+    )
+    if not up:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    asin = up.asin
+
+    # Add to blocklist if not already there
+    already_blocked = (
+        db.query(BlockedAsin)
+        .filter(BlockedAsin.user_id == user.id, BlockedAsin.asin == asin)
+        .first()
+    )
+    if not already_blocked:
+        db.add(BlockedAsin(user_id=user.id, asin=asin))
+
+    db.delete(up)
+    db.commit()
+    return HTMLResponse("")  # HTMX swaps row out
+
+
+@router.get("/blocked", response_class=HTMLResponse)
+async def blocked_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Return the list of permanently hidden ASINs."""
+    blocked = db.query(BlockedAsin).filter(BlockedAsin.user_id == user.id).all()
+    return templates.TemplateResponse(
+        "partials/blocked_list.html",
+        {"request": request, "blocked": blocked, "prefix": settings.APP_PATH_PREFIX},
+    )
+
+
+@router.delete("/blocked/{asin}", response_class=HTMLResponse)
+async def unblock_product(
+    asin: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Remove an ASIN from the permanent blocklist."""
+    db.query(BlockedAsin).filter(
+        BlockedAsin.user_id == user.id, BlockedAsin.asin == asin
+    ).delete()
+    db.commit()
+    return HTMLResponse("")

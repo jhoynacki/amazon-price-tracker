@@ -21,7 +21,20 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(~/bin/gh repo:*)"
+      "Bash(~/bin/gh repo:*)",
+      "Bash(curl -fsSL https://railway.app/install.sh)",
+      "Bash(sh)",
+      "Bash(~/.railway/bin/railway --version)",
+      "Bash(/root/.railway/bin/railway --version)",
+      "Bash(/usr/local/bin/railway --version)",
+      "Bash(/usr/local/bin/railway whoami:*)",
+      "Bash(/usr/local/bin/railway login:*)",
+      "Bash(python3:*)",
+      "Bash(RAILWAY_TOKEN=\"d0d2388c-f71f-4bfc-bb63-e04db8e8eff8\" /usr/local/bin/railway up --service web --detach)",
+      "Bash(/usr/local/bin/railway status:*)",
+      "Bash(/usr/local/bin/railway up:*)",
+      "Bash(git push:*)",
+      "Bash(~/bin/gh api:*)"
     ]
   }
 }

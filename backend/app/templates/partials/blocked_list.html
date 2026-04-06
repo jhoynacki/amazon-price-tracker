@@ -1,0 +1,23 @@
+{% if blocked %}
+<div class="divide-y divide-gray-100">
+  {% for b in blocked %}
+  <div id="blocked-{{ b.asin }}" class="flex items-center justify-between py-2.5 px-1 group">
+    <div>
+      <span class="font-mono text-sm text-gray-700">{{ b.asin }}</span>
+      <a href="https://www.amazon.com/dp/{{ b.asin }}" target="_blank" rel="noopener"
+         class="ml-2 text-xs text-gray-400 hover:text-[#FF9900]">↗ View</a>
+    </div>
+    <button hx-delete="{{ prefix }}/products/blocked/{{ b.asin }}"
+            hx-target="#blocked-{{ b.asin }}"
+            hx-swap="outerHTML"
+            hx-confirm="Unblock {{ b.asin }}? It can be re-added via import."
+            class="text-xs text-gray-400 hover:text-green-600 opacity-0 group-hover:opacity-100
+                   transition-all px-2 py-1 rounded border border-gray-200 hover:border-green-300">
+      Restore
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-400 py-2">No permanently hidden products.</p>
+{% endif %}
